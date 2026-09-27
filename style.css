@@ -1,0 +1,356 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #020617;
+    color: #ffffff;
+    overscroll-behavior: none;
+}
+
+button {
+    font-family: inherit;
+}
+
+.app {
+    width: 100%;
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0f172a 0%, #111827 45%, #0f172a 100%);
+    padding-bottom: 82px;
+}
+
+.app-header {
+    height: 74px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.profile-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo {
+    width: 48px;
+    height: 48px;
+}
+
+.profile-area h1 {
+    font-size: 21px;
+    font-weight: 800;
+}
+
+.profile-area p {
+    margin-top: 3px;
+    font-size: 10px;
+    color: #a5b4fc;
+}
+
+.icon-button {
+    width: 43px;
+    height: 43px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    color: white;
+    font-size: 19px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.icon-button:active {
+    transform: scale(0.88);
+}
+
+.content {
+    width: 100%;
+    max-width: 700px;
+    margin: auto;
+    padding: 18px 15px 25px;
+}
+
+.welcome-card {
+    padding: 27px 20px;
+    text-align: center;
+    border-radius: 25px;
+    background: linear-gradient(135deg, #1d4ed8, #4f46e5, #7c3aed);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+}
+
+.welcome-icon {
+    font-size: 42px;
+    margin-bottom: 8px;
+}
+
+.welcome-card h2 {
+    font-size: 25px;
+}
+
+.welcome-card p {
+    color: #e0e7ff;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 9px 0 20px;
+}
+
+.primary-button {
+    border: 0;
+    padding: 13px 24px;
+    border-radius: 14px;
+    background: #ffffff;
+    color: #3730a3;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 7px 20px rgba(0,0,0,0.2);
+}
+
+.primary-button:active {
+    transform: scale(0.95);
+}
+
+.section {
+    margin-top: 25px;
+}
+
+.section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.section-title h2 {
+    font-size: 19px;
+}
+
+.section-title span {
+    font-size: 12px;
+    color: #818cf8;
+}
+
+.tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 11px;
+}
+
+.tool-card {
+    padding: 17px 14px;
+    min-height: 135px;
+    border-radius: 19px;
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.07);
+    transition: transform 0.2s, background 0.2s;
+}
+
+.tool-card:active {
+    transform: scale(0.96);
+    background: rgba(255,255,255,0.1);
+}
+
+.tool-icon {
+    width: 43px;
+    height: 43px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 13px;
+    font-size: 21px;
+    margin-bottom: 13px;
+}
+
+.blue { background: rgba(37,99,235,0.2); }
+.purple { background: rgba(124,58,237,0.2); }
+.green { background: rgba(34,197,94,0.15); }
+.orange { background: rgba(249,115,22,0.15); }
+
+.tool-card h3 {
+    font-size: 15px;
+}
+
+.tool-card p {
+    margin-top: 5px;
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+.chapter-card {
+    margin-top: 25px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.07);
+}
+
+.chapter-number {
+    width: 55px;
+    height: 55px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    font-size: 17px;
+    font-weight: 900;
+}
+
+.chapter-info h3 {
+    font-size: 16px;
+}
+
+.chapter-info p {
+    margin-top: 5px;
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.ready {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    color: #86efac;
+    font-size: 11px;
+}
+
+.ready span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 9px #22c55e;
+}
+
+.coming-card {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 17px;
+    border-radius: 19px;
+    background: rgba(255,255,255,0.045);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.coming-card > span {
+    font-size: 30px;
+}
+
+.coming-card h3 {
+    font-size: 15px;
+}
+
+.coming-card p {
+    margin-top: 5px;
+    color: #94a3b8;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 70px;
+    z-index: 50;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(15,23,42,0.96);
+    backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.nav-item {
+    width: 25%;
+    height: 60px;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.nav-item span {
+    font-size: 20px;
+}
+
+.nav-item small {
+    font-size: 10px;
+}
+
+.nav-item.active {
+    color: #818cf8;
+}
+
+body.light {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+body.light .app {
+    background: linear-gradient(180deg, #f8fafc, #eef2ff);
+}
+
+body.light .app-header,
+body.light .bottom-nav {
+    background: rgba(255,255,255,0.94);
+    border-color: rgba(15,23,42,0.08);
+}
+
+body.light .icon-button {
+    background: #e2e8f0;
+}
+
+body.light .tool-card,
+body.light .chapter-card,
+body.light .coming-card {
+    background: rgba(255,255,255,0.85);
+    border-color: rgba(15,23,42,0.08);
+}
+
+body.light .tool-card p,
+body.light .chapter-info p,
+body.light .coming-card p {
+    color: #64748b;
+}
+
+@media (min-width: 700px) {
+    .app {
+        max-width: 700px;
+        margin: auto;
+        box-shadow: 0 0 50px rgba(0,0,0,0.35);
+    }
+
+    .bottom-nav {
+        max-width: 700px;
+        margin: auto;
+    }
+}

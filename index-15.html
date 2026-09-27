@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0a0d13">
+<title>NeuraHub — Ajeet Web Lab</title>
+<style>
+:root{
+ --bg:#080a0f;--panel:#10141c;--panel2:#151a23;--line:#242b38;
+ --text:#f4f6fa;--muted:#8d96a6;--accent:#7c8cff;--accent2:#5667e8;
+ --good:#70d6a0;--danger:#e57979;--shadow:0 18px 50px rgba(0,0,0,.28)
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{min-height:100vh;max-width:1180px;margin:auto;padding-bottom:82px}
+.topbar{
+ position:sticky;top:0;z-index:50;height:64px;padding:0 16px;
+ display:flex;align-items:center;justify-content:space-between;
+ background:rgba(8,10,15,.92);backdrop-filter:blur(18px);
+ border-bottom:1px solid var(--line)
+}
+.brand{font-weight:800;letter-spacing:-.4px;font-size:20px}.brand span{color:var(--accent)}
+.top-actions{display:flex;gap:8px}.icon-btn{
+ width:40px;height:40px;border-radius:12px;border:1px solid var(--line);
+ background:var(--panel);color:var(--text)
+}
+main{padding:18px 16px}
+.page{display:none;animation:pageIn .28s ease}.page.active{display:block}
+@keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.hero{
+ padding:28px 22px;border:1px solid var(--line);border-radius:24px;
+ background:linear-gradient(145deg,#111721,#0d1016);box-shadow:var(--shadow)
+}
+.hero .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:1.8px;color:var(--muted)}
+.hero h1{font-size:clamp(34px,9vw,58px);line-height:1;margin:10px 0}
+.hero p{max-width:650px;color:var(--muted);line-height:1.6;margin:0}
+.hero-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.primary,.secondary{
+ border-radius:12px;padding:11px 15px;border:1px solid var(--line);color:var(--text)
+}
+.primary{background:var(--accent);border-color:var(--accent)}
+.secondary{background:var(--panel)}
+.section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:26px 2px 13px}
+.section-head h2{margin:0;font-size:20px}.muted{color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:13px}
+.stat b{font-size:20px}.stat small{display:block;color:var(--muted);margin-top:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.card{
+ background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;
+ transition:transform .18s ease,border-color .18s ease,background .18s ease
+}
+.card:active{transform:scale(.98)}.card:hover{border-color:#394255;background:var(--panel2)}
+.card-icon{font-size:25px;height:32px}.card h3{margin:10px 0 5px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.card .secondary{margin-top:13px;width:100%}
+.search{width:100%;padding:13px 15px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:13px;outline:none}
+.search:focus{border-color:var(--accent)}
+.back{margin-bottom:14px}
+.demo-wrap{border:1px solid var(--line);border-radius:22px;background:#05070b;min-height:420px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.demo-label{position:absolute;top:14px;left:14px;color:var(--muted);font-size:12px}
+.heart-demo{text-align:center}.heart{font-size:105px;display:block;animation:heart .8s infinite}.ecg{width:230px;height:35px;position:relative;margin:18px auto;overflow:hidden}.ecg:before{content:"";position:absolute;left:-40px;top:17px;width:310px;height:2px;background:var(--accent);box-shadow:42px 0 0 var(--accent);animation:ecg 1.2s linear infinite}.ecg:after{content:"";position:absolute;width:20px;height:22px;border-left:2px solid var(--accent);border-top:2px solid var(--accent);transform:skew(-22deg) rotate(25deg);left:105px;top:2px;animation:ecgp 1.2s linear infinite}
+@keyframes heart{50%{transform:scale(1.18)}}@keyframes ecg{to{transform:translateX(90px)}}@keyframes ecgp{50%{opacity:1}70%{opacity:0}}
+.neon-text{font-size:48px;font-weight:900;letter-spacing:2px;text-shadow:0 0 8px #fff,0 0 24px var(--accent);animation:neon 1.4s infinite alternate}
+@keyframes neon{50%{opacity:.55}70%{opacity:1}}
+.ring{width:145px;height:145px;border-radius:50%;border:8px solid var(--accent);border-top-color:transparent;box-shadow:0 0 35px rgba(124,140,255,.35);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bolt{font-size:105px;animation:bolt .75s infinite}.wave{width:140px;height:140px;border:2px solid var(--accent);border-radius:50%;animation:wave 1.6s infinite}.wave:before,.wave:after{content:"";position:absolute;width:140px;height:140px;border:2px solid var(--accent);border-radius:50%;animation:wave 1.6s infinite .45s}.wave:after{animation-delay:.9s}
+@keyframes bolt{50%{filter:brightness(2.8);transform:scale(1.05)}}@keyframes wave{to{transform:scale(2.2);opacity:0}}
+.rocket-demo{text-align:center}.rocket{font-size:92px;animation:rocket 1.8s ease-in-out infinite}.flame{font-size:35px;animation:flame .15s infinite alternate}
+@keyframes rocket{50%{transform:translateY(-60px) rotate(-5deg)}}@keyframes flame{to{transform:scaleY(1.35)}}
+.galaxy{width:230px;height:230px;border:1px solid #394255;border-radius:50%;position:relative;animation:spin 7s linear infinite}.galaxy:before{content:"";position:absolute;inset:38px;border:1px solid #303949;border-radius:50%}.planet{width:44px;height:44px;background:#6979d9;border-radius:50%;position:absolute;left:93px;top:-22px;box-shadow:0 0 25px rgba(124,140,255,.45)}
+.brain{font-size:105px;animation:float 1.7s ease-in-out infinite alternate}@keyframes float{to{transform:translateY(-14px)}}
+.matrix{font-family:monospace;color:#79e0a8;line-height:1.45;text-align:center;font-size:18px;animation:matrix .8s infinite alternate}@keyframes matrix{to{opacity:.45}}
+.house3d{font-size:125px;filter:drop-shadow(0 20px 20px rgba(0,0,0,.5));animation:house 3s ease-in-out infinite}@keyframes house{50%{transform:rotateY(18deg) translateY(-5px)}}
+.cyber{padding:17px 27px;border-radius:12px;border:1px solid var(--accent);background:#0d1220;color:white;box-shadow:0 0 25px rgba(124,140,255,.35);animation:cyber 1.2s infinite alternate}@keyframes cyber{to{box-shadow:0 0 45px rgba(124,140,255,.7);transform:translateY(-2px)}}
+.calc{max-width:410px;margin:auto;background:var(--panel);border:1px solid var(--line);padding:15px;border-radius:20px}.calc-display{height:70px;background:#070910;border:1px solid var(--line);border-radius:13px;padding:10px 14px;text-align:right;font-size:31px;overflow:auto;margin-bottom:10px}.calc-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.calc-keys button{height:56px;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px}.calc-keys button.op{background:var(--accent);border-color:var(--accent)}
+.game{height:500px;background:linear-gradient(#0a0e16,#151a22);border:1px solid var(--line);border-radius:22px;position:relative;overflow:hidden}.road{position:absolute;inset:0 18%;background:#252a32;border-left:3px dashed #69717e;border-right:3px dashed #69717e}.road:before,.road:after{content:"";position:absolute;top:-100px;width:5px;height:85px;background:#aeb4bd;animation:road 1s linear infinite}.road:before{left:33%}.road:after{left:66%;animation-delay:.5s}@keyframes road{to{transform:translateY(620px)}}.game-car{position:absolute;bottom:78px;left:50%;transform:translateX(-50%);font-size:58px;transition:left .12s}.enemy{position:absolute;font-size:48px;top:-70px;left:30%;animation:enemy 2.8s linear infinite}@keyframes enemy{to{transform:translateY(620px)}}.hud{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;font-size:13px}.steer{position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:center;gap:70px}.steer button{width:58px;height:48px;border-radius:14px;border:1px solid var(--line);background:rgba(16,20,28,.92);color:white;font-size:22px}
+.phone{width:275px;height:510px;border:8px solid #282d38;border-radius:34px;background:#0d121b;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,.5)}.phone-top{text-align:center;padding:8px;font-size:11px;color:#9ca5b5}.phone-body{padding:18px}.app-icon{display:inline-flex;width:65px;height:65px;margin:5px;border-radius:17px;background:#171e2a;border:1px solid #2c3545;align-items:center;justify-content:center;font-size:26px}
+.setting{margin-bottom:10px}.setting label{display:block;color:var(--muted);font-size:12px;margin-bottom:7px}.setting select{width:100%;padding:11px;border-radius:11px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.bottom-nav{position:fixed;z-index:100;bottom:0;left:50%;transform:translateX(-50%);width:min(1180px,100%);background:rgba(9,12,18,.97);backdrop-filter:blur(15px);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:7px 4px calc(7px + env(safe-area-inset-bottom))}
+.bottom-nav button{background:none;border:0;color:#818b9d;font-size:10px;padding:4px}.bottom-nav button b{display:block;font-size:20px;margin-bottom:2px}.bottom-nav button.active{color:#fff}
+.toast{position:fixed;z-index:200;left:50%;bottom:92px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#171d29;border:1px solid #323c50;padding:11px 15px;border-radius:12px;transition:.25s}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(min-width:700px){main{padding:30px}.hero{padding:40px}.bottom-nav{border-radius:18px 18px 0 0}.app{padding-bottom:95px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+ <div class="brand">Neura<span>Hub</span></div>
+ <div class="top-actions"><button class="icon-btn" onclick="showToast('NeuraHub is running locally')">●</button><button class="icon-btn" onclick="toggleTheme()">◐</button></div>
+</header>
+
+<main>
+<section id="home" class="page active">
+ <div class="hero">
+  <div class="eyebrow">Ajeet Web Lab</div>
+  <h1>Build. Explore.<br>Learn.</h1>
+  <p>A clean, smooth and professional mini web lab designed for Android. Everything in this version works locally without external libraries.</p>
+  <div class="hero-row"><button class="primary" onclick="go('projects')">Explore Projects</button><button class="secondary" onclick="go('game')">Play Game</button></div>
+ </div>
+ <div class="stats"><div class="stat"><b id="projectCount">11</b><small>Projects</small></div><div class="stat"><b>100%</b><small>Local</small></div><div class="stat"><b id="bestHome">0</b><small>Best Score</small></div></div>
+ <div class="section-head"><h2>Quick Access</h2></div>
+ <div class="grid">
+  <div class="card"><div class="card-icon">✦</div><h3>Projects</h3><p>Interactive animations and visual experiments.</p><button class="secondary" onclick="go('projects')">Open</button></div>
+  <div class="card"><div class="card-icon">⌘</div><h3>Car Game</h3><p>Simple smooth steering game.</p><button class="secondary" onclick="go('game')">Play</button></div>
+  <div class="card"><div class="card-icon">＋</div><h3>Calculator</h3><p>Fast working calculator.</p><button class="secondary" onclick="go('calculator')">Open</button></div>
+  <div class="card"><div class="card-icon">▣</div><h3>Android UI</h3><p>A phone-style mini interface.</p><button class="secondary" onclick="go('android')">Open</button></div>
+ </div>
+</section>
+
+<section id="projects" class="page">
+ <div class="section-head"><div><h2>Projects</h2><p class="muted">Tap a project to launch its live demo.</p></div></div>
+ <input id="search" class="search" placeholder="Search projects..." oninput="filterProjects()">
+ <div id="projectGrid" class="grid" style="margin-top:13px"></div>
+</section>
+
+<section id="viewer" class="page">
+ <button class="secondary back" onclick="go('projects')">← Back to Projects</button>
+ <div class="section-head"><div><h2 id="demoTitle"></h2><p class="muted">Live local demo</p></div></div>
+ <div id="demoBox" class="demo-wrap"></div>
+</section>
+
+<section id="game" class="page">
+ <div class="section-head"><div><h2>Car Game</h2><p class="muted">Use the controls or keyboard arrows.</p></div></div>
+ <div class="game">
+  <div class="road"></div><div class="hud"><span>Score: <b id="score">0</b></span><span>Best: <b id="best">0</b></span></div>
+  <div class="enemy">🚙</div><div id="gameCar" class="game-car">🏎️</div>
+  <div class="steer"><button onclick="steer(-1)">←</button><button onclick="steer(1)">→</button></div>
+ </div>
+</section>
+
+<section id="calculator" class="page">
+ <div class="section-head"><div><h2>Calculator</h2><p class="muted">Basic arithmetic calculator.</p></div></div>
+ <div class="calc"><div id="calcDisplay" class="calc-display">0</div><div class="calc-keys" id="calcKeys"></div></div>
+</section>
+
+<section id="android" class="page">
+ <div class="section-head"><div><h2>Android UI</h2><p class="muted">A small phone-style interface.</p></div></div>
+ <div style="display:flex;justify-content:center"><div class="phone">
+  <div class="phone-top">9:41 &nbsp; • &nbsp; NeuraHub</div><div class="phone-body"><h2 style="margin:0">My Apps</h2><p class="muted">Local workspace</p>
+   <span class="app-icon" onclick="go('calculator')">＋</span><span class="app-icon" onclick="go('projects')">✦</span><span class="app-icon" onclick="go('game')">⌘</span><span class="app-icon" onclick="go('settings')">⚙</span>
+  </div>
+ </div></div>
+</section>
+
+<section id="settings" class="page">
+ <div class="section-head"><div><h2>Settings</h2><p class="muted">Control the website.</p></div></div>
+ <div class="setting"><label>Theme</label><select id="themeSelect" onchange="setTheme(this.value)"><option value="dark">Dark</option><option value="light">Light</option></select></div>
+ <div class="setting"><label>Animations</label><select id="animSelect" onchange="setAnimations(this.value)"><option value="on">On</option><option value="off">Off</option></select></div>
+ <div class="setting"><label>Reset saved data</label><button class="secondary" onclick="resetData()">Reset</button></div>
+</section>
+</main>
+
+<nav class="bottom-nav">
+ <button data-page="home" onclick="go('home')" class="active"><b>⌂</b>Home</button>
+ <button data-page="projects" onclick="go('projects')"><b>✦</b>Projects</button>
+ <button data-page="game" onclick="go('game')"><b>⌘</b>Game</button>
+ <button data-page="calculator" onclick="go('calculator')"><b>＋</b>Calc</button>
+ <button data-page="settings" onclick="go('settings')"><b>⚙</b>Settings</button>
+</nav>
+<div id="toast" class="toast"></div>
+</div>
+
+<script>
+const projects=[
+ ['Heartbeat','❤️','Pulse animation with ECG effect.'],
+ ['Neon Animation','✦','Smooth neon text animation.'],
+ ['Neon Ring','◯','Rotating neon ring.'],
+ ['Lightning','ϟ','Flashing lightning effect.'],
+ ['Water Wave','◌','Expanding water-wave effect.'],
+ ['Rocket','🚀','Animated rocket launch.'],
+ ['Galaxy','◉','Orbiting planet animation.'],
+ ['AI Brain','🧠','Floating AI brain visual.'],
+ ['Matrix','01','Matrix-style digital effect.'],
+ ['3D House','⌂','Animated 3D-style house.'],
+ ['Cyber Button','◇','Interactive cyber button.']
+];
+const grid=document.getElementById('projectGrid');
+function renderProjects(list=projects){
+ grid.innerHTML=list.map((p,i)=>`<div class="card"><div class="card-icon">${p[1]}</div><h3>${p[0]}</h3><p>${p[2]}</p><button class="secondary" onclick="openDemo(${i})">Run Demo</button></div>`).join('');
+}
+renderProjects();
+
+function go(id){
+ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+ const target=document.getElementById(id); if(target) target.classList.add('active');
+ document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+function filterProjects(){
+ const q=document.getElementById('search').value.toLowerCase();
+ renderProjects(projects.filter(p=>(p[0]+' '+p[2]).toLowerCase().includes(q)));
+}
+function openDemo(i){
+ const p=projects[i]; document.getElementById('demoTitle').textContent=p[0];
+ const box=document.getElementById('demoBox');
+ const common=`<div class="demo-label">${p[0]}</div>`;
+ let body='';
+ if(p[0]==='Heartbeat') body='<div class="heart-demo"><span class="heart">❤️</span><div class="ecg"></div><span class="muted">Heartbeat animation</span></div>';
+ if(p[0]==='Neon Animation') body='<div class="neon-text">NEURA</div>';
+ if(p[0]==='Neon Ring') body='<div class="ring"></div>';
+ if(p[0]==='Lightning') body='<div class="bolt">ϟ</div>';
+ if(p[0]==='Water Wave') body='<div class="wave"></div>';
+ if(p[0]==='Rocket') body='<div class="rocket-demo"><div class="rocket">🚀</div><div class="flame">🔥</div></div>';
+ if(p[0]==='Galaxy') body='<div class="galaxy"><div class="planet"></div></div>';
+ if(p[0]==='AI Brain') body='<div class="brain">🧠</div>';
+ if(p[0]==='Matrix') body='<div class="matrix">01001010<br>10110100<br>11001001<br>00101110<br>10100101</div>';
+ if(p[0]==='3D House') body='<div class="house3d">⌂</div>';
+ if(p[0]==='Cyber Button') body='<button class="cyber" onclick="showToast(\'Cyber mode activated\')">CYBER MODE</button>';
+ box.innerHTML=common+body;go('viewer');
+}
+let calcValue='';
+const calcKeys=['C','⌫','(',')','7','8','9','÷','4','5','6','×','1','2','3','−','0','.','+','='];
+document.getElementById('calcKeys').innerHTML=calcKeys.map(k=>`<button class="${'÷×−+='.includes(k)?'op':''}" onclick="calcPress('${k}')">${k}</button>`).join('');
+function calcPress(k){
+ if(k==='C') calcValue='';
+ else if(k==='⌫') calcValue=calcValue.slice(0,-1);
+ else if(k==='='){
+  try{if(!/^[0-9+*/(). -]+$/.test(calcValue))throw 0;calcValue=String(Function('return '+calcValue)()).replace(/\.0+$/,'')}
+  catch{calcValue='Error'}
+ } else calcValue+=({'÷':'/','×':'*','−':'-'})[k]||k;
+ document.getElementById('calcDisplay').textContent=calcValue||'0';
+}
+let playerX=50,score=0,best=Number(localStorage.getItem('nhBest')||0);
+document.getElementById('best').textContent=best;document.getElementById('bestHome').textContent=best;
+function steer(d){playerX=Math.max(22,Math.min(78,playerX+d*8));document.getElementById('gameCar').style.left=playerX+'%';score++;document.getElementById('score').textContent=score;if(score>best){best=score;localStorage.setItem('nhBest',best);document.getElementById('best').textContent=best;document.getElementById('bestHome').textContent=best}}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')steer(-1);if(e.key==='ArrowRight')steer(1)});
+function toggleTheme(){setTheme(document.documentElement.dataset.theme==='light'?'dark':'light')}
+function setTheme(t){
+ document.documentElement.dataset.theme=t;localStorage.setItem('nhTheme',t);
+ if(t==='light'){
+  document.documentElement.style.setProperty('--bg','#f3f5f8');document.documentElement.style.setProperty('--panel','#fff');document.documentElement.style.setProperty('--panel2','#f0f2f5');document.documentElement.style.setProperty('--line','#dce1e8');document.documentElement.style.setProperty('--text','#151922');document.documentElement.style.setProperty('--muted','#687181')
+ }else{
+  document.documentElement.style.setProperty('--bg','#080a0f');document.documentElement.style.setProperty('--panel','#10141c');document.documentElement.style.setProperty('--panel2','#151a23');document.documentElement.style.setProperty('--line','#242b38');document.documentElement.style.setProperty('--text','#f4f6fa');document.documentElement.style.setProperty('--muted','#8d96a6')
+ }
+}
+function setAnimations(v){document.body.classList.toggle('no-animations',v==='off');localStorage.setItem('nhAnim',v)}
+function resetData(){localStorage.removeItem('nhBest');localStorage.removeItem('nhTheme');localStorage.removeItem('nhAnim');location.reload()}
+function showToast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.add('show');clearTimeout(window.tt);window.tt=setTimeout(()=>x.classList.remove('show'),1800)}
+const savedTheme=localStorage.getItem('nhTheme')||'dark',savedAnim=localStorage.getItem('nhAnim')||'on';
+document.getElementById('themeSelect').value=savedTheme;document.getElementById('animSelect').value=savedAnim;setTheme(savedTheme);setAnimations(savedAnim);
+</script>
+<style>.no-animations *{animation:none!important;transition:none!important}</style>
+</body>
+</html>
