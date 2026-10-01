@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+{% block title %}Custom Rules{% endblock %}
+{% block breadcrumb %}<span class="breadcrumb">Custom Rules</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">⚙ Custom Rules</h1>
+    <p class="page-subtitle">Define your own sorting logic. Rules run before category defaults and take priority.</p>
+  </div>
+  <button class="btn btn-primary" onclick="openRuleModal()">+ Add Rule</button>
+</div>
+
+<!-- Rule priority note -->
+<div class="info-banner">
+  <span class="ib-icon">◈</span>
+  <span>Rules are evaluated in <strong>priority order</strong> (lower number = higher priority). First matching rule wins. Set priority when creating a rule.</span>
+</div>
+
+<!-- Rules List -->
+<div class="rules-list" id="rulesList">
+  {% if rules %}
+    {% for rule in rules %}
+    <div class="rule-card {% if not rule.enabled %}rule-disabled{% endif %}" data-id="{{ rule.id }}" data-rule='{{ rule|tojson }}'>
+      <div class="rule-priority">{{ rule.priority|default(loop.index, true) }}</div>
+      <div class="rule-body">
+        <div class="rule-name-row">
+          <span class="rule-name">{{ rule.name }}</span>
+          <span class="rule-action-badge action-{{ rule.action_type }}">{{ rule.action_type or 'move' }}</span>
+          {% if not rule.enabled %}
+          <span class="rule-disabled-badge">disabled</span>
+          {% endif %}
+        </div>
+        <div class="rule-conditions">
+          <span class="rc-label">IF</span>
+          <span class="rc-text">{{ rule.conditions_summary }}</span>
+        </div>
+        {% if rule.destination %}
+        <div class="rule-destination">
+          <span class="rd-label">→</span>
+          <span class="rd-path mono">{{ rule.destination }}</span>
+        </div>
+        {% endif %}
+      </div>
+      <div class="rule-actions">
+        <button class="btn-icon-sm" onclick="editRule('{{ rule.id }}')" title="Edit">✎</button>
+        <button class="btn-icon-sm" onclick="deleteRule('{{ rule.id }}')" title="Delete">✕</button>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state rules-empty">
+      <div class="es-icon">⚙</div>
+      <h3>No custom rules yet</h3>
+      <p>Create rules to tell the organizer exactly where specific files should go.<br>
+         Example: "All .pdf files with 'invoice' in name → Finance/Invoices"</p>
+      <button class="btn btn-primary" onclick="openRuleModal()">Create Your First Rule</button>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Example rules section -->
+<div class="card examples-card">
+  <div class="card-header">
+    <h3>Quick-Add Examples</h3>
+    <span class="card-badge">Templates</span>
+  </div>
+  <div class="example-rules">
+    <div class="ex-rule" onclick="loadExample('invoices')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();loadExample('invoices')}" tabindex="0" role="button">
+      <span class="ex-icon">◻</span>
+      <div class="ex-text">
+        <strong>Invoice PDFs</strong>
+        <span>PDF files with "invoice" in name → Finance/Invoices</span>
+      </div>
+      <button class="btn-tiny">+ Add</button>
+    </div>
+    <div class="ex-rule" onclick="loadExample('screenshots')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();loadExample('screenshots')}" tabindex="0" role="button">
+      <span class="ex-icon">◈</span>
+      <div class="ex-text">
+        <strong>Screenshots</strong>
+        <span>Images with "screenshot" in name → Images/Screenshots</span>
+      </div>
+      <button class="btn-tiny">+ Add</button>
+    </div>
+    <div class="ex-rule" onclick="loadExample('music')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();loadExample('music')}" tabindex="0" role="button">
+      <span class="ex-icon">♪</span>
+      <div class="ex-text">
+        <strong>Music Collection</strong>
+        <span>All audio files → Music/</span>
+      </div>
+      <button class="btn-tiny">+ Add</button>
+    </div>
+    <div class="ex-rule" onclick="loadExample('skip_system')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();loadExample('skip_system')}" tabindex="0" role="button">
+      <span class="ex-icon">✕</span>
+      <div class="ex-text">
+        <strong>Skip System Folders</strong>
+        <span>Files in "Windows" or "System" folders → Skip</span>
+      </div>
+      <button class="btn-tiny">+ Add</button>
+    </div>
+    <div class="ex-rule" onclick="loadExample('large_videos')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();loadExample('large_videos')}" tabindex="0" role="button">
+      <span class="ex-icon">▶</span>
+      <div class="ex-text">
+        <strong>Large Videos</strong>
+        <span>Video files over 500MB → Videos/LargeFiles</span>
+      </div>
+      <button class="btn-tiny">+ Add</button>
+    </div>
+    <div class="ex-rule" onclick="loadExample('code_projects')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();loadExample('code_projects')}" tabindex="0" role="button">
+      <span class="ex-icon">⌨</span>
+      <div class="ex-text">
+        <strong>Python Files</strong>
+        <span>All .py files → Code/Python</span>
+      </div>
+      <button class="btn-tiny">+ Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div id="confirmDeleteModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmDeleteTitle">
+  <div class="modal-backdrop" onclick="closeConfirmDelete()"></div>
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <span class="modal-title" id="confirmDeleteTitle">Delete Rule</span>
+      <button class="modal-close" onclick="closeConfirmDelete()" aria-label="Close dialog">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>Are you sure you want to delete this rule? This cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeConfirmDelete()">Cancel</button>
+      <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Rule Modal -->
+<div id="ruleModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ruleModalTitle">
+  <div class="modal-backdrop" onclick="closeRuleModal()"></div>
+  <div class="modal-box modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="ruleModalTitle">⚙ New Custom Rule</span>
+      <button class="modal-close" onclick="closeRuleModal()" aria-label="Close dialog">✕</button>
+    </div>
+    <div class="modal-body rule-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Rule Name</label>
+          <input type="text" id="rf-name" class="form-input" placeholder="e.g. Study PDFs" />
+        </div>
+        <div class="form-group form-group-sm">
+          <label>Priority</label>
+          <input type="number" id="rf-priority" class="form-input" value="10" min="1" max="999" />
+        </div>
+      </div>
+
+      <div class="form-section-label">CONDITIONS <span class="hint">(leave blank to match all)</span></div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>File Extensions</label>
+          <input type="text" id="rf-ext" class="form-input" placeholder=".pdf, .docx, .txt" />
+          <span class="form-hint">Comma separated. e.g. .pdf, .doc</span>
+        </div>
+        <div class="form-group">
+          <label>Name Contains (any)</label>
+          <input type="text" id="rf-name-contains" class="form-input" placeholder="invoice, receipt, bill" />
+          <span class="form-hint">Comma separated keywords</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Min Size (MB)</label>
+          <input type="number" id="rf-min-size" class="form-input" placeholder="e.g. 100" min="0" />
+        </div>
+        <div class="form-group">
+          <label>Max Size (MB)</label>
+          <input type="number" id="rf-max-size" class="form-input" placeholder="e.g. 500" min="0" />
+        </div>
+      </div>
+
+      <div class="form-section-label">ACTION</div>
+
+      <div class="form-row">
+        <div class="form-group form-group-sm">
+          <label>Action Type</label>
+          <select id="rf-action" class="form-select" onchange="toggleDestField()">
+            <option value="move">Move</option>
+            <option value="copy">Copy</option>
+            <option value="skip">Skip (exclude from plan)</option>
+          </select>
+        </div>
+        <div class="form-group" id="destGroup">
+          <label>Destination Folder</label>
+          <input type="text" id="rf-dest" class="form-input" placeholder="e.g. Finance/Invoices" />
+          <span class="form-hint">Relative to output base folder</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="rf-enabled" checked />
+            Rule is enabled
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeRuleModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRule()">Save Rule</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const EXAMPLES = {
+  invoices: {
+    name: 'Invoice PDFs', priority: 5,
+    conditions: { extensions: ['.pdf'], name_contains: ['invoice', 'receipt', 'bill'] },
+    action: { type: 'move', destination: 'Finance/Invoices' }
+  },
+  screenshots: {
+    name: 'Screenshots', priority: 5,
+    conditions: { extensions: ['.png', '.jpg'], name_contains: ['screenshot', 'screen'] },
+    action: { type: 'move', destination: 'Images/Screenshots' }
+  },
+  music: {
+    name: 'Music Collection', priority: 10,
+    conditions: { extensions: ['.mp3', '.flac', '.wav', '.aac', '.ogg'] },
+    action: { type: 'move', destination: 'Music' }
+  },
+  skip_system: {
+    name: 'Skip System Folders', priority: 1,
+    conditions: { folder_contains: 'Windows' },
+    action: { type: 'skip', destination: '' }
+  },
+  large_videos: {
+    name: 'Large Videos', priority: 8,
+    conditions: { extensions: ['.mp4', '.mkv', '.avi', '.mov'], min_size_mb: 500 },
+    action: { type: 'move', destination: 'Videos/LargeFiles' }
+  },
+  code_projects: {
+    name: 'Python Files', priority: 10,
+    conditions: { extensions: ['.py'] },
+    action: { type: 'move', destination: 'Code/Python' }
+  }
+};
+
+let _editRuleId = null;
+
+function openRuleModal() {
+  document.getElementById('ruleModalTitle').textContent = _editRuleId ? '✎ Edit Rule' : '⚙ New Custom Rule';
+  document.getElementById('ruleModal').classList.remove('hidden');
+}
+function closeRuleModal() {
+  document.getElementById('ruleModal').classList.add('hidden');
+  clearRuleForm();
+}
+
+function clearRuleForm() {
+  _editRuleId = null;
+  ['rf-name','rf-ext','rf-name-contains','rf-min-size','rf-max-size','rf-dest'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('rf-priority').value = 10;
+  document.getElementById('rf-action').value = 'move';
+  document.getElementById('rf-enabled').checked = true;
+  document.getElementById('destGroup').style.display = '';
+}
+
+function editRule(ruleId) {
+  const card = document.querySelector(`.rule-card[data-id="${ruleId}"]`);
+  if (!card) return;
+  const rule = JSON.parse(card.dataset.rule);
+
+  _editRuleId = ruleId;
+  document.getElementById('rf-name').value = rule.name || '';
+  document.getElementById('rf-priority').value = rule.priority || 10;
+  document.getElementById('rf-enabled').checked = rule.enabled !== false;
+
+  const cond = rule.conditions || {};
+  document.getElementById('rf-ext').value = (cond.extensions || []).join(', ');
+  document.getElementById('rf-name-contains').value = (cond.name_contains || []).join(', ');
+  document.getElementById('rf-min-size').value = cond.min_size_mb || '';
+  document.getElementById('rf-max-size').value = cond.max_size_mb || '';
+
+  const action = rule.action || {};
+  document.getElementById('rf-action').value = action.type || 'move';
+  document.getElementById('rf-dest').value = action.destination || '';
+  toggleDestField();
+  openRuleModal();
+}
+
+function toggleDestField() {
+  const action = document.getElementById('rf-action').value;
+  document.getElementById('destGroup').style.display = action === 'skip' ? 'none' : '';
+}
+
+function loadExample(key) {
+  const ex = EXAMPLES[key];
+  if (!ex) return;
+  document.getElementById('rf-name').value = ex.name;
+  document.getElementById('rf-priority').value = ex.priority;
+  document.getElementById('rf-ext').value = (ex.conditions.extensions || []).join(', ');
+  document.getElementById('rf-name-contains').value = (ex.conditions.name_contains || []).join(', ');
+  document.getElementById('rf-min-size').value = ex.conditions.min_size_mb || '';
+  document.getElementById('rf-max-size').value = ex.conditions.max_size_mb || '';
+  document.getElementById('rf-action').value = ex.action.type;
+  document.getElementById('rf-dest').value = ex.action.destination || '';
+  toggleDestField();
+  openRuleModal();
+}
+
+async function saveRule() {
+  const name = document.getElementById('rf-name').value.trim();
+  if (!name) { showToast('Rule name is required', 'error'); return; }
+
+  const extRaw = document.getElementById('rf-ext').value;
+  const nameContainsRaw = document.getElementById('rf-name-contains').value;
+  const extensions = extRaw ? extRaw.split(',').map(e => e.trim()).filter(Boolean).map(e => e.startsWith('.') ? e : '.'+e) : [];
+  const nameContains = nameContainsRaw ? nameContainsRaw.split(',').map(e => e.trim()).filter(Boolean) : [];
+
+  const rule = {
+    id: _editRuleId || ('rule_' + Date.now()),
+    name,
+    enabled: document.getElementById('rf-enabled').checked,
+    priority: parseInt(document.getElementById('rf-priority').value) || 10,
+    conditions: {
+      ...(extensions.length ? { extensions } : {}),
+      ...(nameContains.length ? { name_contains: nameContains } : {}),
+      ...(document.getElementById('rf-min-size').value ? { min_size_mb: parseFloat(document.getElementById('rf-min-size').value) } : {}),
+      ...(document.getElementById('rf-max-size').value ? { max_size_mb: parseFloat(document.getElementById('rf-max-size').value) } : {}),
+    },
+    action: {
+      type: document.getElementById('rf-action').value,
+      destination: document.getElementById('rf-dest').value.trim() || null
+    }
+  };
+
+  // SAFETY (C5): Validate that move/copy rules have a destination.
+  // Without this, rules with null destination could cause backend errors
+  // or files being moved to unexpected locations.
+  if ((rule.action.type === 'move' || rule.action.type === 'copy') && !rule.action.destination) {
+    showToast('Destination folder is required for move/copy rules.', 'error');
+    document.getElementById('rf-dest').focus();
+    return;
+  }
+
+  try {
+    const isEdit = !!_editRuleId;
+
+    const res = await fetch('/api/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rule)
+    });
+    const data = await res.json();
+    if (data.success) {
+      // Delete old rule only after new one saved successfully
+      if (isEdit) {
+        await fetch(`/api/rules/${_editRuleId}`, { method: 'DELETE' });
+      }
+      showToast(isEdit ? 'Rule updated!' : 'Rule saved! Re-scan to apply.', 'success');
+      closeRuleModal();
+      setTimeout(() => location.reload(), 800);
+    } else {
+      showToast(data.error || 'Failed to save rule', 'error');
+    }
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+let _deleteRuleId = null;
+
+function deleteRule(ruleId) {
+  _deleteRuleId = ruleId;
+  document.getElementById('confirmDeleteModal').classList.remove('hidden');
+  document.getElementById('confirmDeleteBtn').onclick = async () => {
+    const idToDelete = _deleteRuleId;
+    closeConfirmDelete();
+    try {
+      const res = await fetch(`/api/rules/${idToDelete}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Rule deleted', 'success');
+        setTimeout(() => location.reload(), 600);
+      } else {
+        showToast(data.error || 'Delete failed', 'error');
+      }
+    } catch(e) {
+      showToast('Failed to delete rule: ' + e.message, 'error');
+    }
+  };
+}
+
+function closeConfirmDelete() {
+  document.getElementById('confirmDeleteModal').classList.add('hidden');
+  _deleteRuleId = null;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block breadcrumb %}<span class="breadcrumb">Settings</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">◫ Settings</h1>
+    <p class="page-subtitle">Configure scan behavior, file thresholds, ignored folders, and categories.</p>
+  </div>
+  <button class="btn btn-primary" onclick="saveSettings()">Save Changes</button>
+</div>
+
+<div class="settings-layout">
+
+  <!-- Scan Settings -->
+  <div class="card settings-card">
+    <div class="card-header"><h3>Scan Settings</h3></div>
+    <div class="settings-group">
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Large File Threshold</label>
+          <span class="setting-hint">Files over this size are flagged as "Large"</span>
+        </div>
+        <div class="setting-control">
+          <input type="number" id="s-large-threshold" class="form-input sm"
+                 value="{{ config.large_file_threshold_mb }}" min="1" max="10000" />
+          <span class="unit-label">MB</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Max Scan Depth</label>
+          <span class="setting-hint">How deep to recurse into subdirectories</span>
+        </div>
+        <div class="setting-control">
+          <input type="number" id="s-max-depth" class="form-input sm"
+                 value="{{ config.max_scan_depth }}" min="1" max="50" />
+          <span class="unit-label">levels</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Duplicate Check Method</label>
+          <span class="setting-hint">MD5 is faster; SHA256 is more accurate</span>
+        </div>
+        <div class="setting-control">
+          <select id="s-dup-method" class="form-select sm">
+            <option value="md5" {% if config.duplicate_check_method == 'md5' %}selected{% endif %}>MD5 (Fast)</option>
+            <option value="sha256" {% if config.duplicate_check_method == 'sha256' %}selected{% endif %}>SHA256 (Accurate)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Scan Hidden Files</label>
+          <span class="setting-hint">Include files/folders starting with "."</span>
+        </div>
+        <div class="setting-control">
+          <label class="toggle">
+            <input type="checkbox" id="s-hidden" {% if config.scan_hidden_files %}checked{% endif %} />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Output Base Folder Name</label>
+          <span class="setting-hint">Default folder name for organized output</span>
+        </div>
+        <div class="setting-control">
+          <input type="text" id="s-output-folder" class="form-input sm"
+                 value="{{ config.output_base_folder }}" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ignored Folders -->
+  <div class="card settings-card">
+    <div class="card-header"><h3>Ignored Folders</h3></div>
+    <p class="card-hint">These folder names will be skipped entirely during scan (matched by name, not full path).</p>
+    <div class="tag-input-wrap">
+      <div id="ignoredFolderTags" class="tag-list">
+        {% for folder in config.ignored_folders %}
+        <span class="tag-item">{{ folder }}<button onclick="removeTag(this,'ignored')">×</button></span>
+        {% endfor %}
+      </div>
+      <div class="tag-add-row">
+        <input type="text" id="newIgnoredFolder" class="form-input" placeholder="e.g. node_modules" />
+        <button class="btn-tiny" onclick="addTag('ignored')">Add</button>
+        <button class="btn-tiny browse-btn" id="browseFoldersBtn" onclick="openBrowseFolders()" title="Browse folders from last scan">Browse</button>
+      </div>
+    </div>
+  </div>
+
+<!-- Browse Scanned Folders Modal -->
+<div id="browseFoldersModal" class="modal hidden">
+  <div class="modal-backdrop" onclick="closeBrowseFolders()"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Browse Scanned Folders</span>
+      <button class="modal-close" onclick="closeBrowseFolders()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="browse-hint" id="browseScanPath"></p>
+      <p class="browse-note">Selected folders will be skipped in all future scans.</p>
+      <div class="browse-search-row">
+        <input type="text" id="browseFolderSearch" class="form-input" placeholder="Filter folders..." oninput="filterBrowseFolders()" />
+        <span class="browse-count" id="browseSelectedCount">0 selected</span>
+      </div>
+      <div id="browseFolderList" class="browse-folder-list">
+        <div class="browse-empty">Loading...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeBrowseFolders()">Cancel</button>
+      <button class="btn btn-primary" id="browseAddBtn" onclick="addBrowsedFolders()" disabled>Add Selected</button>
+    </div>
+  </div>
+</div>
+
+  <!-- Junk Extensions -->
+  <div class="card settings-card">
+    <div class="card-header"><h3>Junk Extensions</h3></div>
+    <p class="card-hint">Files with these extensions are flagged as junk (not auto-deleted, just highlighted).</p>
+    <div class="tag-input-wrap">
+      <div id="junkExtTags" class="tag-list">
+        {% for ext in config.junk_extensions %}
+        <span class="tag-item">{{ ext }}<button onclick="removeTag(this,'junk')">×</button></span>
+        {% endfor %}
+      </div>
+      <div class="tag-add-row">
+        <input type="text" id="newJunkExt" class="form-input" placeholder="e.g. .tmp" />
+        <button class="btn-tiny" onclick="addTag('junk')">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Extensions -->
+  <div class="card settings-card">
+    <div class="card-header"><h3>File Categories</h3></div>
+    <p class="card-hint">Edit which extensions belong to each category. Click a category to expand.</p>
+    <div class="categories-accordion" id="categoriesAccordion">
+      {% for cat, exts in config.categories.items() %}
+      <div class="cat-accord-item">
+        <div class="cat-accord-header" onclick="toggleAccordion(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleAccordion(this)}" tabindex="0" role="button" aria-expanded="false">
+          <span class="ca-name">{{ cat }}</span>
+          <span class="ca-count">{{ exts|length }} extensions</span>
+          <span class="ca-arrow">▸</span>
+        </div>
+        <div class="cat-accord-body hidden">
+          <div class="cat-ext-tags" data-category="{{ cat }}">
+            {% for ext in exts %}
+            <span class="tag-item ext-tag">{{ ext }}<button onclick="removeCatExt(this,'{{ cat }}')">×</button></span>
+            {% endfor %}
+          </div>
+          <div class="tag-add-row">
+            <input type="text" class="form-input" placeholder=".ext" data-cat="{{ cat }}" />
+            <button class="btn-tiny" onclick="addCatExt(this,'{{ cat }}')">Add</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<div class="settings-footer">
+  <button class="btn btn-outline" onclick="resetSettings()">Reset to Defaults</button>
+  <button class="btn btn-primary" onclick="saveSettings()">Save All Changes</button>
+</div>
+
+<!-- Reset Confirm Modal -->
+<div id="resetConfirmModal" class="modal hidden">
+  <div class="modal-backdrop" onclick="closeResetConfirm()"></div>
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <span class="modal-title">Reset Settings</span>
+      <button class="modal-close" onclick="closeResetConfirm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>Reset all settings to defaults? This will overwrite your current configuration.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeResetConfirm()">Cancel</button>
+      <button class="btn btn-danger" onclick="doReset()">Reset to Defaults</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAccordion(header) {
+  const body = header.nextElementSibling;
+  const arrow = header.querySelector('.ca-arrow');
+  body.classList.toggle('hidden');
+  const isOpen = !body.classList.contains('hidden');
+  arrow.textContent = isOpen ? '▾' : '▸';
+  header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function addTag(type) {
+  const inputId = type === 'ignored' ? 'newIgnoredFolder' : 'newJunkExt';
+  const listId = type === 'ignored' ? 'ignoredFolderTags' : 'junkExtTags';
+  const input = document.getElementById(inputId);
+  const val = input.value.trim();
+  if (!val) return;
+  const tag = document.createElement('span');
+  tag.className = 'tag-item';
+  tag.innerHTML = `${val}<button onclick="removeTag(this,'${type}')">×</button>`;
+  document.getElementById(listId).appendChild(tag);
+  input.value = '';
+}
+
+function removeTag(btn, type) {
+  const listId = type === 'ignored' ? 'ignoredFolderTags' : 'junkExtTags';
+  const remaining = document.getElementById(listId).querySelectorAll('.tag-item').length;
+  if (remaining <= 1) {
+    showToast('Cannot remove the last entry - at least one is required.', 'warn');
+    return;
+  }
+  btn.parentElement.remove();
+}
+
+function addCatExt(btn, cat) {
+  const row = btn.parentElement;
+  const input = row.querySelector('input');
+  let val = input.value.trim();
+  if (!val) return;
+  if (!val.startsWith('.')) val = '.' + val;
+  const container = row.previousElementSibling;
+  const tag = document.createElement('span');
+  tag.className = 'tag-item ext-tag';
+  tag.innerHTML = `${val}<button onclick="removeCatExt(this,'${cat}')">×</button>`;
+  container.appendChild(tag);
+  input.value = '';
+}
+
+function removeCatExt(btn, cat) {
+  const container = btn.parentElement.parentElement;
+  const remaining = container.querySelectorAll('.ext-tag').length;
+  if (remaining <= 1) {
+    showToast(`Cannot remove the last extension from ${cat} - at least one is required.`, 'warn');
+    return;
+  }
+  btn.parentElement.remove();
+}
+
+async function saveSettings() {
+  const ignoredFolders = [...document.querySelectorAll('#ignoredFolderTags .tag-item')].map(t => t.textContent.replace('×','').trim());
+  const junkExts = [...document.querySelectorAll('#junkExtTags .tag-item')].map(t => t.textContent.replace('×','').trim());
+
+  const categories = {};
+  document.querySelectorAll('.cat-ext-tags').forEach(div => {
+    const cat = div.dataset.category;
+    const exts = [...div.querySelectorAll('.ext-tag')].map(t => t.textContent.replace('×','').trim());
+    categories[cat] = exts;
+  });
+
+  const outputFolder = document.getElementById('s-output-folder').value.trim() || 'Organized';
+  const invalidChars = /[\/\\:*?"<>|]/;
+  if (invalidChars.test(outputFolder)) {
+    showToast('Output folder name contains invalid characters: / \\ : * ? " < > |', 'error');
+    return;
+  }
+
+  const config = {
+    large_file_threshold_mb: parseInt(document.getElementById('s-large-threshold').value) || 100,
+    max_scan_depth: parseInt(document.getElementById('s-max-depth').value) || 10,
+    duplicate_check_method: document.getElementById('s-dup-method').value,
+    scan_hidden_files: document.getElementById('s-hidden').checked,
+    output_base_folder: outputFolder,
+    ignored_folders: ignoredFolders,
+    junk_extensions: junkExts,
+    categories,
+  };
+
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    const data = await res.json();
+    if (data.success) showToast('Settings saved!', 'success');
+    else showToast('Failed to save settings', 'error');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+function resetSettings() {
+  document.getElementById('resetConfirmModal').classList.remove('hidden');
+}
+
+function closeResetConfirm() {
+  document.getElementById('resetConfirmModal').classList.add('hidden');
+}
+
+async function doReset() {
+  closeResetConfirm();
+  try {
+    const res = await fetch('/api/config/reset', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Settings reset to defaults!', 'success');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast('Failed to reset settings', 'error');
+    }
+  } catch (err) {
+    showToast('Error resetting settings: ' + err.message, 'error');
+  }
+}
+
+// Enter key support for tag inputs
+document.addEventListener('DOMContentLoaded', () => {
+  const ignoredInput = document.getElementById('newIgnoredFolder');
+  if (ignoredInput) ignoredInput.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); addTag('ignored'); } });
+  const junkInput = document.getElementById('newJunkExt');
+  if (junkInput) junkInput.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); addTag('junk'); } });
+});
+
+// ── Browse Scanned Folders ──────────────────────────────────────────────────
+let _browseFolders = [];
+
+async function openBrowseFolders() {
+  const modal = document.getElementById('browseFoldersModal');
+  const list = document.getElementById('browseFolderList');
+  const searchInput = document.getElementById('browseFolderSearch');
+  searchInput.value = '';
+
+  modal.classList.remove('hidden');
+  list.innerHTML = '<div class="browse-empty">Loading folders...</div>';
+
+  try {
+    const res = await fetch('/api/scanned-folders');
+    const data = await res.json();
+
+    if (!data.folders || data.folders.length === 0) {
+      list.innerHTML = '<div class="browse-empty">No scan data available. Run a scan first from the Dashboard.</div>';
+      document.getElementById('browseScanPath').textContent = '';
+      return;
+    }
+
+    document.getElementById('browseScanPath').textContent = `Folders from scan: ${data.scan_path}`;
+    _browseFolders = data.folders;
+    renderBrowseFolders(_browseFolders);
+  } catch(e) {
+    list.innerHTML = '<div class="browse-empty">Failed to load folders.</div>';
+  }
+}
+
+function renderBrowseFolders(folders) {
+  const list = document.getElementById('browseFolderList');
+  if (folders.length === 0) {
+    list.innerHTML = '<div class="browse-empty">No matching folders found.</div>';
+    updateBrowseCount();
+    return;
+  }
+  list.innerHTML = folders.map(f => `
+    <label class="browse-folder-item" tabindex="0" onkeydown="if(event.key===' '){event.preventDefault();this.querySelector('input').click()}">
+      <input type="checkbox" class="browse-cb" value="${escHtml(f.name)}" onchange="updateBrowseCount()" />
+      <svg class="browse-folder-icon" viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l.622.62a.5.5 0 00.354.147H13.5A1.5 1.5 0 0115 4.707V12.5A1.5 1.5 0 0113.5 14h-11A1.5 1.5 0 011 12.5z"/></svg>
+      <span class="browse-folder-name">${escHtml(f.name)}</span>
+      <span class="browse-file-count">${f.file_count} file${f.file_count !== 1 ? 's' : ''}</span>
+    </label>
+  `).join('');
+  updateBrowseCount();
+}
+
+function filterBrowseFolders() {
+  const q = document.getElementById('browseFolderSearch').value.toLowerCase().trim();
+  const filtered = q ? _browseFolders.filter(f => f.name.toLowerCase().includes(q)) : _browseFolders;
+  renderBrowseFolders(filtered);
+}
+
+function updateBrowseCount() {
+  const checked = document.querySelectorAll('#browseFolderList .browse-cb:checked').length;
+  document.getElementById('browseSelectedCount').textContent = `${checked} selected`;
+  document.getElementById('browseAddBtn').disabled = checked === 0;
+}
+
+function addBrowsedFolders() {
+  const checked = document.querySelectorAll('#browseFolderList .browse-cb:checked');
+  const existing = new Set(
+    [...document.querySelectorAll('#ignoredFolderTags .tag-item')].map(t => t.textContent.replace('×','').trim().toLowerCase())
+  );
+
+  let added = 0;
+  checked.forEach(cb => {
+    const name = cb.value;
+    if (!existing.has(name.toLowerCase())) {
+      const tag = document.createElement('span');
+      tag.className = 'tag-item';
+      tag.innerHTML = `${name}<button onclick="removeTag(this,'ignored')">×</button>`;
+      document.getElementById('ignoredFolderTags').appendChild(tag);
+      existing.add(name.toLowerCase());
+      added++;
+    }
+  });
+
+  closeBrowseFolders();
+  if (added > 0) {
+    showToast(`Added ${added} folder${added > 1 ? 's' : ''} to ignore list. Click "Save Changes" to apply.`, 'success');
+  } else {
+    showToast('Selected folders are already in the ignore list.', 'warn');
+  }
+}
+
+function closeBrowseFolders() {
+  document.getElementById('browseFoldersModal').classList.add('hidden');
+  _browseFolders = [];
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% block title %}Scan Results{% endblock %}
+{% block breadcrumb %}<span class="breadcrumb">Scan Results</span>{% endblock %}
+
+{% block content %}
+<div class="results-header">
+  <div>
+    <h1 class="page-title">Scan Results</h1>
+    <p class="page-subtitle" id="scanPathDisplay">Loading scan data...</p>
+  </div>
+  <div class="results-actions">
+    <a href="{{ url_for('index') }}" class="btn btn-outline">← New Scan</a>
+    <a href="{{ url_for('preview_page') }}" class="btn btn-primary">Review Plan →</a>
+  </div>
+</div>
+
+<!-- Overview Stats Grid -->
+<div class="overview-grid" id="overviewGrid">
+  <div class="overview-card primary">
+    <span class="ov-icon">⊞</span>
+    <span class="ov-value" id="ov-files">-</span>
+    <span class="ov-label">Total Files</span>
+  </div>
+  <div class="overview-card">
+    <span class="ov-icon">◫</span>
+    <span class="ov-value" id="ov-size">-</span>
+    <span class="ov-label">Total Size</span>
+  </div>
+  <div class="overview-card warn">
+    <span class="ov-icon">⧖</span>
+    <span class="ov-value" id="ov-dupes">-</span>
+    <span class="ov-label">Duplicates</span>
+  </div>
+  <div class="overview-card danger">
+    <span class="ov-icon">✕</span>
+    <span class="ov-value" id="ov-junk">-</span>
+    <span class="ov-label">Junk Files</span>
+  </div>
+  <div class="overview-card">
+    <span class="ov-icon">▲</span>
+    <span class="ov-value" id="ov-large">-</span>
+    <span class="ov-label">Large Files</span>
+  </div>
+  <div class="overview-card">
+    <span class="ov-icon">○</span>
+    <span class="ov-value" id="ov-empty">-</span>
+    <span class="ov-label">Empty Folders</span>
+  </div>
+</div>
+
+<!-- Two-column layout -->
+<div class="results-layout">
+
+  <!-- LEFT: Category Breakdown -->
+  <div class="results-col">
+    <div class="card">
+      <div class="card-header">
+        <h3>File Categories</h3>
+      </div>
+      <div id="categoryList" class="category-list">
+        <div class="skeleton-loader"></div>
+      </div>
+    </div>
+
+    <!-- Duplicates Card -->
+    <div class="card" id="dupCard">
+      <div class="card-header">
+        <h3>⧖ Duplicate Groups</h3>
+        <span class="card-badge warn" id="dupBadge">0</span>
+      </div>
+      <div id="dupList" class="dup-list">
+        <p class="empty-hint">No duplicates found</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Junk + Large Files + Empty Folders -->
+  <div class="results-col">
+    <div class="card" id="junkCard">
+      <div class="card-header">
+        <h3>✕ Junk Files</h3>
+        <span class="card-badge danger" id="junkBadge">0</span>
+      </div>
+      <div id="junkList" class="junk-list">
+        <p class="empty-hint">No junk files detected</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>▲ Space Analysis</h3>
+      </div>
+      <div id="spaceAnalysis" class="space-analysis">
+        <div class="skeleton-loader"></div>
+      </div>
+    </div>
+
+    <div class="card" id="emptyCard">
+      <div class="card-header">
+        <h3>○ Empty Folders</h3>
+        <span class="card-badge" id="emptyBadge">0</span>
+      </div>
+      <div id="emptyList" class="empty-folder-list">
+        <p class="empty-hint">No empty folders found</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- File Explorer Section -->
+<div class="card file-explorer">
+  <div class="card-header">
+    <h3>File Explorer</h3>
+    <div class="explorer-filters">
+      <input type="text" id="fileSearch" class="search-input" placeholder="Search files..." oninput="debounceSearch(this.value)" />
+      <select id="categoryFilter" class="select-input" onchange="loadFiles()">
+        <option value="">All Categories</option>
+      </select>
+      <button class="filter-btn" onclick="filterToggle('junk')" id="fbJunk">Junk</button>
+      <button class="filter-btn" onclick="filterToggle('dupe')" id="fbDupe">Dupes</button>
+      <button class="filter-btn" onclick="filterToggle('large')" id="fbLarge">Large</button>
+    </div>
+  </div>
+  <div id="fileTable" class="file-table-wrap">
+    <div class="skeleton-loader"></div>
+  </div>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+let activeFilters = { junk: false, dupe: false, large: false };
+let searchQuery = '';
+let searchTimer;
+
+async function loadScanData() {
+  try {
+    const res = await fetch('/api/scan-data');
+    const data = await res.json();
+    if (data.error) {
+      document.querySelector('.page-content').innerHTML = `
+        <div class="empty-state large-empty">
+          <div class="es-icon">🔍</div>
+          <h3>No Scan Data Available</h3>
+          <p>Run a scan from the Dashboard first to see results here.</p>
+          <a href="/" class="btn btn-primary">Go to Dashboard</a>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('scanPathDisplay').textContent = `📁 ${data.scan_path}`;
+    document.getElementById('ov-files').textContent = (data.stats.total_files || 0).toLocaleString();
+    document.getElementById('ov-size').textContent = data.stats.total_size_human || '-';
+    document.getElementById('ov-dupes').textContent = data.dup_result.total_groups || 0;
+    document.getElementById('ov-junk').textContent = data.junk_result.total_junk_files || 0;
+    document.getElementById('ov-large').textContent = data.stats.large_files_count || 0;
+    document.getElementById('ov-empty').textContent = (data.empty_folders || []).length;
+
+    renderCategories(data.category_summary || {});
+    renderDuplicates(data.dup_result);
+    renderJunk(data.junk_result);
+    renderSpaceAnalysis(data.stats, data.junk_result, data.dup_result);
+    renderEmptyFolders(data.empty_folders || []);
+
+    // Populate category filter
+    const sel = document.getElementById('categoryFilter');
+    Object.keys(data.category_summary || {}).forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat; opt.textContent = cat;
+      sel.appendChild(opt);
+    });
+
+    loadFiles();
+  } catch(e) {
+    console.error(e);
+    showToast('Error loading scan data: ' + e.message, 'error');
+  }
+}
+
+function renderCategories(cats) {
+  const icons = {
+    'Images': '◈', 'Videos': '▶', 'Audio': '♪', 'Documents': '◻',
+    'Archives': '⬡', 'Code': '⌨', 'Executables': '▲', 'Other': '○', 'Ebooks': '⊟'
+  };
+  const el = document.getElementById('categoryList');
+  el.innerHTML = Object.entries(cats).sort((a,b) => b[1].count - a[1].count).map(([cat, info]) => `
+    <div class="cat-item" onclick="filterByCategory('${cat}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();filterByCategory('${cat}')}" tabindex="0" role="button">
+      <span class="cat-icon">${icons[cat] || '○'}</span>
+      <span class="cat-name">${cat}</span>
+      <span class="cat-count">${info.count.toLocaleString()}</span>
+      <span class="cat-size">${info.total_size_human}</span>
+    </div>
+  `).join('') || '<p class="empty-hint">No files found</p>';
+}
+
+function renderDuplicates(dup) {
+  document.getElementById('dupBadge').textContent = dup.total_groups || 0;
+  if (!dup.duplicate_groups || dup.duplicate_groups.length === 0) return;
+  const el = document.getElementById('dupList');
+  el.innerHTML = dup.duplicate_groups.slice(0, 8).map(g => `
+    <div class="dup-group">
+      <div class="dup-meta">
+        <span class="dup-count">${g.file_count} copies</span>
+        <span class="dup-waste">⚠ ${g.wasted_human} wasted</span>
+      </div>
+      <div class="dup-files">
+        ${g.files.map(f => `
+          <div class="dup-file ${f.is_suggested_keep ? 'keep' : 'remove'}">
+            <span class="df-icon">${f.is_suggested_keep ? '✓' : '⊗'}</span>
+            <span class="df-name" title="${escHtml(f.path)}">${escHtml(f.name)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderJunk(junk) {
+  document.getElementById('junkBadge').textContent = junk.total_junk_files || 0;
+  if (!junk.categories || Object.keys(junk.categories).length === 0) return;
+  const labels = {
+    system_junk: 'System Junk', temp_files: 'Temp Files',
+    zero_byte: 'Zero-byte Files', old_logs: 'Old Logs',
+    partial_downloads: 'Partial Downloads', editor_backups: 'Editor Backups'
+  };
+  const el = document.getElementById('junkList');
+  el.innerHTML = Object.entries(junk.categories).map(([cat, info]) => `
+    <div class="junk-cat">
+      <div class="junk-cat-header">
+        <span class="junk-cat-name">${labels[cat] || cat}</span>
+        <span class="junk-cat-meta">${info.count} files · ${info.total_size_human}</span>
+      </div>
+      <div class="junk-files-mini">
+        ${info.files.slice(0, 3).map(f => `<span class="junk-file-chip" title="${escHtml(f.path)}">${escHtml(f.name)}</span>`).join('')}
+        ${info.count > 3 ? `<span class="junk-more">+${info.count-3} more</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderSpaceAnalysis(stats, junk, dup) {
+  const el = document.getElementById('spaceAnalysis');
+  const total = stats.total_size_bytes || 0;
+  const junkBytes = junk.total_junk_size_bytes || 0;
+  const dupBytes = dup.total_wasted_bytes || 0;
+  const usable = total - junkBytes - dupBytes;
+  el.innerHTML = `
+    <div class="space-bar-wrap">
+      <div class="space-bar">
+        <div class="sb-segment usable" style="width:${total ? (usable/total*100).toFixed(1) : 0}%"></div>
+        <div class="sb-segment junk" style="width:${total ? (junkBytes/total*100).toFixed(1) : 0}%"></div>
+        <div class="sb-segment dup" style="width:${total ? (dupBytes/total*100).toFixed(1) : 0}%"></div>
+      </div>
+      <div class="space-legend">
+        <span class="sl-item usable">■ Usable: ${stats.total_size_human}</span>
+        <span class="sl-item junk">■ Junk: ${junk.total_junk_size_human || '0 B'}</span>
+        <span class="sl-item dup">■ Duplicates: ${dup.total_wasted_human || '0 B'}</span>
+      </div>
+    </div>
+    ${stats.largest_file ? `
+      <div class="largest-file">
+        <span class="lf-label">Largest file:</span>
+        <span class="lf-name" title="${stats.largest_file.path}">${stats.largest_file.name}</span>
+        <span class="lf-size">${stats.largest_file.size_human}</span>
+      </div>` : ''}
+  `;
+}
+
+function renderEmptyFolders(folders) {
+  document.getElementById('emptyBadge').textContent = folders.length;
+  if (!folders.length) return;
+  const el = document.getElementById('emptyList');
+  el.innerHTML = folders.slice(0, 10).map(f => `
+    <div class="empty-folder-item">
+      <span class="ef-icon">○</span>
+      <span class="ef-path" title="${escHtml(f)}">${escHtml(f)}</span>
+    </div>
+  `).join('') + (folders.length > 10 ? `<p class="empty-hint">+${folders.length-10} more</p>` : '');
+}
+
+async function loadFiles() {
+  const el = document.getElementById('fileTable');
+  el.innerHTML = '<div class="skeleton-loader"></div>';
+
+  try {
+    const cat = document.getElementById('categoryFilter').value;
+    const params = new URLSearchParams({
+      page: currentPage, per_page: 50,
+      q: searchQuery,
+      ...(cat ? { category: cat } : {}),
+      ...(activeFilters.junk ? { junk: 1 } : {}),
+      ...(activeFilters.dupe ? { duplicate: 1 } : {}),
+      ...(activeFilters.large ? { large: 1 } : {}),
+    });
+
+    const res = await fetch(`/api/files?${params}`);
+    const data = await res.json();
+
+    if (!data.files || data.files.length === 0) {
+      el.innerHTML = '<div class="empty-state">No files match your filters</div>';
+      document.getElementById('pagination').innerHTML = '';
+      return;
+    }
+
+    el.innerHTML = `
+      <table class="file-table">
+        <thead><tr>
+          <th>Name</th><th>Category</th><th>Size</th><th>Extension</th><th>Flags</th>
+        </tr></thead>
+        <tbody>
+          ${data.files.map(f => `
+            <tr class="${f.is_junk ? 'row-junk' : ''} ${f.is_duplicate ? 'row-dup' : ''}">
+              <td class="fn-cell" title="${escHtml(f.full_path)}">${escHtml(f.name)}</td>
+              <td><span class="cat-tag">${escHtml(f.category) || '-'}</span></td>
+              <td class="mono">${f.size_human}</td>
+              <td class="mono">${escHtml(f.extension) || '-'}</td>
+              <td><div class="flags-cell">
+                ${f.is_duplicate ? '<span class="flag flag-dup">DUP</span>' : ''}
+                ${f.is_junk ? '<span class="flag flag-junk">JUNK</span>' : ''}
+                ${f.is_large ? '<span class="flag flag-large">LARGE</span>' : ''}
+                ${f.rule_match ? `<span class="flag flag-rule" title="${escHtml(f.rule_match)}">RULE</span>` : ''}
+              </div></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    renderPagination(data.page, data.pages, data.total);
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state">Failed to load files</div>';
+    showToast('Error loading files: ' + e.message, 'error');
+  }
+}
+
+function renderPagination(page, pages, total) {
+  if (pages <= 1) { document.getElementById('pagination').innerHTML = `<span class="page-info">${total} files</span>`; return; }
+  let html = `<span class="page-info">${total} files</span>`;
+  if (page > 1) html += `<button class="page-btn" onclick="goPage(${page-1})">←</button>`;
+  html += `<span class="page-current">Page ${page} of ${pages}</span>`;
+  if (page < pages) html += `<button class="page-btn" onclick="goPage(${page+1})">→</button>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function goPage(p) { currentPage = p; loadFiles(); }
+
+function filterByCategory(cat) {
+  document.getElementById('categoryFilter').value = cat;
+  currentPage = 1;
+  loadFiles();
+}
+
+function filterToggle(type) {
+  activeFilters[type] = !activeFilters[type];
+  document.getElementById('fb'+type.charAt(0).toUpperCase()+type.slice(1)).classList.toggle('active', activeFilters[type]);
+  currentPage = 1;
+  loadFiles();
+}
+
+function debounceSearch(val) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { searchQuery = val; currentPage = 1; loadFiles(); }, 300);
+}
+
+loadScanData();
+</script>
+{% endblock %}

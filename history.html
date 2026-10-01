@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Undo History{% endblock %}
+{% block breadcrumb %}<span class="breadcrumb">Undo History</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">↺ Undo History</h1>
+    <p class="page-subtitle">Every organization session is logged here. Roll back any session with one click.</p>
+  </div>
+</div>
+
+<div class="info-banner warn-banner">
+  <span class="ib-icon">⚠</span>
+  <span>Rollback moves files back to their <strong>original locations</strong>. If the moved file no longer exists at the destination, it will be listed as "not found".</span>
+</div>
+
+{% if sessions %}
+<div class="sessions-list">
+  {% for sess in sessions %}
+  <div class="session-card status-{{ sess.status }}" id="sess-{{ sess.session_id }}">
+    <div class="session-status-bar"></div>
+    <div class="session-body">
+      <div class="session-header">
+        <div class="session-id-row">
+          <span class="session-id mono">{{ sess.session_id }}</span>
+          <span class="session-status-badge">{{ sess.status.replace('_', ' ').upper() }}</span>
+        </div>
+        <div class="session-meta">
+          <span class="sm-item"><svg class="sm-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l.622.62a.5.5 0 00.354.147H13.5A1.5 1.5 0 0115 4.707V12.5A1.5 1.5 0 0113.5 14h-11A1.5 1.5 0 011 12.5z"/></svg> {{ sess.scan_path }}</span>
+          <span class="sm-item"><svg class="sm-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg> {{ (sess.timestamp or '')[:16].replace('T', ' ') }}</span>
+          <span class="sm-item"><svg class="sm-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h10l-1.5 7H4.5z"/><circle cx="5.5" cy="13" r="1"/><circle cx="10.5" cy="13" r="1"/></svg> {{ sess.total_files }} files · {{ sess.total_size }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="session-actions">
+      <button class="btn-tiny" onclick="viewSession('{{ sess.session_id }}')">Details</button>
+      {% if sess.can_undo %}
+      <button class="btn btn-outline btn-sm undo-btn" onclick="rollbackSession('{{ sess.session_id }}')">
+        ↺ Undo
+      </button>
+      {% else %}
+      <span class="rolled-back-label">{{ sess.status.replace('_', ' ') }}</span>
+      {% endif %}
+      <button class="btn-icon-sm danger" onclick="deleteSession('{{ sess.session_id }}')" title="Delete record">✕</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state large-empty">
+  <div class="es-icon">↺</div>
+  <h3>No Organization History Yet</h3>
+  <p>Once you run an organization, every session will appear here.<br>
+     You can roll back any session at any time as long as the moved files still exist.</p>
+  <a href="{{ url_for('index') }}" class="btn btn-primary">Start Your First Scan</a>
+</div>
+{% endif %}
+
+<!-- Session Detail Modal -->
+<div id="sessionDetailModal" class="modal hidden">
+  <div class="modal-backdrop" onclick="closeDetail()"></div>
+  <div class="modal-box modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="detailTitle">Session Detail</span>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="modal-body" id="detailBody">
+      <div class="skeleton-loader"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Rollback Progress Modal -->
+<div id="rollbackModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <span class="modal-title">↺ Rolling Back...</span>
+    </div>
+    <div class="modal-body">
+      <div class="loading-spinner" style="margin: 20px auto;"></div>
+      <p style="text-align:center" id="rollbackStatus">Restoring files to original locations...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Modal (replaces browser confirm dialogs) -->
+<div id="confirmActionModal" class="modal hidden">
+  <div class="modal-backdrop" onclick="closeConfirmAction()"></div>
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <span class="modal-title" id="confirmActionTitle">Confirm</span>
+      <button class="modal-close" onclick="closeConfirmAction()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirmActionMsg"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeConfirmAction()">Cancel</button>
+      <button class="btn" id="confirmActionBtn" onclick="confirmActionProceed()">Proceed</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _confirmActionCallback = null;
+
+function showConfirmAction(title, message, btnText, btnClass, callback) {
+  document.getElementById('confirmActionTitle').textContent = title;
+  document.getElementById('confirmActionMsg').textContent = message;
+  const btn = document.getElementById('confirmActionBtn');
+  btn.textContent = btnText;
+  btn.className = `btn ${btnClass}`;
+  _confirmActionCallback = callback;
+  document.getElementById('confirmActionModal').classList.remove('hidden');
+}
+
+function closeConfirmAction() {
+  document.getElementById('confirmActionModal').classList.add('hidden');
+  _confirmActionCallback = null;
+}
+
+function confirmActionProceed() {
+  const cb = _confirmActionCallback;
+  closeConfirmAction();
+  if (cb) cb();
+}
+
+function rollbackSession(sessionId) {
+  showConfirmAction(
+    '↺ Confirm Rollback',
+    `Roll back session ${sessionId}? All moved files will be restored to their original locations.`,
+    'Roll Back',
+    'btn-primary',
+    () => doRollback(sessionId)
+  );
+}
+
+async function doRollback(sessionId) {
+  document.getElementById('rollbackModal').classList.remove('hidden');
+  document.getElementById('rollbackStatus').textContent = 'Restoring files...';
+
+  try {
+    const res = await fetch(`/api/undo/${sessionId}`, { method: 'POST' });
+    const data = await res.json();
+    document.getElementById('rollbackModal').classList.add('hidden');
+
+    if (data.success) {
+      showToast(
+        `Rollback complete: ${data.restored_count} restored, ${data.not_found_count} not found, ${data.failed_count} failed.`,
+        data.failed_count > 0 ? 'warn' : 'success'
+      );
+      const card = document.getElementById(`sess-${sessionId}`);
+      if (card) {
+        card.className = card.className.replace('status-completed', 'status-rolled_back');
+        card.querySelector('.session-status-badge').textContent = 'ROLLED BACK';
+        card.querySelector('.undo-btn')?.remove();
+      }
+    } else {
+      showToast(data.error || 'Rollback failed', 'error');
+    }
+  } catch(e) {
+    document.getElementById('rollbackModal').classList.add('hidden');
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function viewSession(sessionId) {
+  document.getElementById('sessionDetailModal').classList.remove('hidden');
+  document.getElementById('detailTitle').textContent = `Session ${sessionId}`;
+  document.getElementById('detailBody').innerHTML = '<div class="skeleton-loader"></div>';
+
+  try {
+    const res = await fetch(`/api/history/${sessionId}`);
+    const data = await res.json();
+
+    const ops = data.operations || [];
+    const failed = data.failed || [];
+
+    document.getElementById('detailBody').innerHTML = `
+      <div class="detail-meta">
+        <div class="dm-row"><span class="dm-label">Path:</span><span class="mono">${escHtml(data.scan_path) || '-'}</span></div>
+        <div class="dm-row"><span class="dm-label">Time:</span><span>${(data.timestamp || '').replace('T', ' ').slice(0, 19)}</span></div>
+        <div class="dm-row"><span class="dm-label">Status:</span><span class="session-status-badge">${(data.status || '').toUpperCase()}</span></div>
+        <div class="dm-row"><span class="dm-label">Files moved:</span><span>${ops.length}</span></div>
+      </div>
+
+      ${failed.length > 0 ? `
+        <div class="detail-section">
+          <h4 class="ds-title warn-text">Failed Operations (${failed.length})</h4>
+          ${failed.slice(0,10).map(f => `
+            <div class="detail-op fail">
+              <span class="do-src" title="${escHtml(f.src)}">${escHtml((f.src||'').split(/[\\/]/).pop())}</span>
+              <span class="do-err">${escHtml(f.error)}</span>
+            </div>
+          `).join('')}
+        </div>` : ''}
+
+      <div class="detail-section">
+        <h4 class="ds-title">Operations (showing ${Math.min(ops.length, 50)} of ${ops.length})</h4>
+        <div class="detail-ops-list">
+          ${ops.slice(0, 50).map(op => `
+            <div class="detail-op">
+              <span class="do-action ${op.action}">${escHtml(op.action) || 'move'}</span>
+              <span class="do-src mono small" title="${escHtml(op.src)}">${escHtml((op.src||'').split(/[\\/]/).pop())}</span>
+              <span class="do-arrow">-></span>
+              <span class="do-dst mono small" title="${escHtml(op.dst)}">${escHtml((op.dst||'').split(/[\\/]/).slice(-3).join('/'))}</span>
+            </div>
+          `).join('')}
+          ${ops.length > 50 ? `<p class="empty-hint">+${ops.length - 50} more operations</p>` : ''}
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    document.getElementById('detailBody').innerHTML = `<p class="error-text">Failed to load session detail.</p>`;
+  }
+}
+
+function closeDetail() {
+  document.getElementById('sessionDetailModal').classList.add('hidden');
+}
+
+function deleteSession(sessionId) {
+  showConfirmAction(
+    '✕ Delete Record',
+    'Delete this history record? This does NOT undo the operations - it just removes the log.',
+    'Delete',
+    'btn-danger',
+    async () => {
+      try {
+        const res = await fetch(`/api/history/${sessionId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById(`sess-${sessionId}`)?.remove();
+          showToast('Record deleted', 'success');
+          // Show empty state if no sessions remain
+          const list = document.querySelector('.sessions-list');
+          if (list && list.children.length === 0) {
+            list.outerHTML = `
+              <div class="empty-state large-empty">
+                <div class="es-icon">↺</div>
+                <h3>No Organization History Yet</h3>
+                <p>Once you run an organization, every session will appear here.</p>
+                <a href="/" class="btn btn-primary">Start Your First Scan</a>
+              </div>`;
+          }
+        } else {
+          showToast(data.error || 'Delete failed', 'error');
+        }
+      } catch(e) {
+        showToast('Failed to delete record: ' + e.message, 'error');
+      }
+    }
+  );
+}
+</script>
+{% endblock %}

@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+{% block title %}Preview Plan{% endblock %}
+{% block breadcrumb %}<span class="breadcrumb">Preview Plan</span>{% endblock %}
+
+{% block content %}
+<div class="preview-header">
+  <div>
+    <h1 class="page-title">◎ Organization Preview</h1>
+    <p class="page-subtitle">Review every planned operation. Select what to apply. Nothing moves until you confirm.</p>
+  </div>
+  <div class="preview-actions">
+    <a href="{{ url_for('scan_results_page') }}" class="btn btn-outline">← Back to Results</a>
+    <button class="btn btn-danger" id="executeBtn" onclick="confirmExecute()">
+      ▶ Apply Changes
+    </button>
+  </div>
+</div>
+
+<!-- Plan Summary Bar -->
+<div class="plan-summary" id="planSummary">
+  <div class="ps-item">
+    <span class="ps-value" id="ps-total">-</span>
+    <span class="ps-label">Total Files</span>
+  </div>
+  <div class="ps-sep">|</div>
+  <div class="ps-item">
+    <span class="ps-value" id="ps-selected">-</span>
+    <span class="ps-label">Selected</span>
+  </div>
+  <div class="ps-sep">|</div>
+  <div class="ps-item">
+    <span class="ps-value" id="ps-size">-</span>
+    <span class="ps-label">Total Size</span>
+  </div>
+  <div class="ps-sep">|</div>
+  <div class="ps-item">
+    <span class="ps-value" id="ps-output" class="mono small"></span>
+    <span class="ps-label">Output Folder</span>
+  </div>
+</div>
+
+<!-- Controls Bar -->
+<div class="preview-controls">
+  <div class="preview-filter-row">
+    <button class="filter-btn active" onclick="filterOps('all')" id="fo-all">All</button>
+    <button class="filter-btn" onclick="filterOps('move')" id="fo-move">Move</button>
+    <button class="filter-btn" onclick="filterOps('junk')" id="fo-junk">Junk</button>
+    <button class="filter-btn" onclick="filterOps('dup')" id="fo-dup">Duplicates</button>
+    <button class="filter-btn" onclick="filterOps('conflict')" id="fo-conflict">Conflicts</button>
+    <button class="filter-btn" onclick="filterOps('rule')" id="fo-rule">Rule Matched</button>
+  </div>
+  <div class="preview-bulk">
+    <button class="btn-tiny" onclick="selectAll(true)">Select All</button>
+    <button class="btn-tiny" onclick="selectAll(false)">Deselect All</button>
+    <button class="btn-tiny" onclick="selectCategory()">By Category...</button>
+  </div>
+</div>
+
+<!-- Operations Table -->
+<div class="card ops-card">
+  <div id="opsTable" class="ops-table-wrap">
+    <div class="skeleton-loader"></div>
+  </div>
+  <div class="pagination" id="opsPagination"></div>
+</div>
+
+<!-- Safety Warning -->
+<div class="safety-notice">
+  <span class="safety-icon">◈</span>
+  <div class="safety-text">
+    <strong>Preview Mode - No Changes Applied Yet</strong>
+    <p>Review all operations above. Files with conflicts will have their names adjusted automatically.
+       All executed changes are logged and can be rolled back from <a href="{{ url_for('history_page') }}">Undo History</a>.</p>
+  </div>
+</div>
+
+<!-- Execute Confirmation Modal -->
+<div id="confirmModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+  <div class="modal-backdrop" onclick="closeConfirm()"></div>
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <span class="modal-title" id="confirmModalTitle">⚠ Confirm Organization</span>
+      <button class="modal-close" onclick="closeConfirm()" aria-label="Close dialog">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>You are about to move <strong id="confirmCount">-</strong> files.</p>
+      <p>All operations are logged and can be undone from History.</p>
+      <div class="confirm-check">
+        <input type="checkbox" id="confirmCheck" />
+        <label for="confirmCheck">I have reviewed the plan and want to proceed</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" onclick="executeNow()">Apply Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div id="successModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="successModalTitle">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box modal-sm success-modal">
+    <div class="success-body">
+      <div class="success-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2 class="success-title" id="successModalTitle">Organization Complete!</h2>
+      <div class="success-stats" id="successMsg"></div>
+      <div class="success-actions">
+        <a href="{{ url_for('history_page') }}" class="btn btn-outline">View History / Undo</a>
+        <a href="{{ url_for('index') }}" class="btn btn-primary">New Scan</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allOps = [];
+let currentFilter = 'all';
+let currentOpsPage = 1;
+const OPS_PER_PAGE = 50;
+let pendingUpdates = {};
+
+async function loadPlan() {
+  try {
+    const res = await fetch(`/api/plan?page=${currentOpsPage}&per_page=${OPS_PER_PAGE}`);
+    const data = await res.json();
+    allOps = data.operations || [];
+
+    document.getElementById('ps-total').textContent = data.total || allOps.length;
+    document.getElementById('ps-selected').textContent = allOps.filter(o => o.selected !== false).length;
+    document.getElementById('ps-size').textContent = data.stats?.total_size_human || '-';
+    document.getElementById('ps-output').textContent = (data.output_base || '').split(/[\\/]/).pop() || data.output_base;
+
+    renderOps();
+  } catch(e) {
+    showToast('Error loading plan: ' + e.message, 'error');
+  }
+}
+
+function getFilteredOps() {
+  return allOps.filter(op => {
+    if (currentFilter === 'all') return true;
+    if (currentFilter === 'junk') return op.is_junk;
+    if (currentFilter === 'dup') return op.is_duplicate;
+    if (currentFilter === 'conflict') return op.conflict;
+    if (currentFilter === 'rule') return op.rule_match;
+    if (currentFilter === 'move') return op.action === 'move';
+    return true;
+  });
+}
+
+function renderOps() {
+  const ops = getFilteredOps();
+  const total = ops.length;
+  const start = (currentOpsPage - 1) * OPS_PER_PAGE;
+  const pageOps = ops.slice(start, start + OPS_PER_PAGE);
+
+  const el = document.getElementById('opsTable');
+  if (total === 0) {
+    el.innerHTML = '<div class="empty-state">No operations match this filter</div>';
+    document.getElementById('opsPagination').innerHTML = '';
+    return;
+  }
+
+  el.innerHTML = `
+    <table class="ops-table">
+      <thead><tr>
+        <th class="col-check"><input type="checkbox" onchange="selectAll(this.checked)" /></th>
+        <th>File</th>
+        <th>Category</th>
+        <th>Destination</th>
+        <th>Size</th>
+        <th>Flags</th>
+      </tr></thead>
+      <tbody>
+        ${pageOps.map(op => {
+          const selected = op.selected !== false;
+          const dst = op.conflict_resolved_dst || op.dst;
+          const dstShort = dst.split(/[\\/]/).slice(-3).join('/');
+          return `
+            <tr class="${!selected ? 'row-deselected' : ''} ${op.conflict ? 'row-conflict' : ''}" data-id="${op.id}">
+              <td><input type="checkbox" ${selected ? 'checked' : ''} onchange="toggleOp(${op.id}, this.checked)" /></td>
+              <td class="fn-cell">
+                <span class="op-filename" title="${escHtml(op.src)}">${escHtml(op.filename)}</span>
+                ${op.rule_match ? `<span class="rule-badge" title="${escHtml(op.rule_match)}">rule</span>` : ''}
+              </td>
+              <td><span class="cat-tag">${escHtml(op.category)}</span></td>
+              <td class="dst-cell mono small" title="${escHtml(dst)}">.../${escHtml(dstShort)}</td>
+              <td class="mono">${op.size_human}</td>
+              <td><div class="flags-cell">
+                ${op.is_duplicate ? '<span class="flag flag-dup">DUP</span>' : ''}
+                ${op.is_junk ? '<span class="flag flag-junk">JUNK</span>' : ''}
+                ${op.conflict ? '<span class="flag flag-conflict">CONFLICT</span>' : ''}
+              </div></td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+
+  renderOpsPagination(currentOpsPage, Math.ceil(total/OPS_PER_PAGE), total);
+}
+
+function renderOpsPagination(page, pages, total) {
+  if (pages <= 1) {
+    document.getElementById('opsPagination').innerHTML = `<span class="page-info">${total} operations</span>`;
+    return;
+  }
+  let html = `<span class="page-info">${total} operations</span>`;
+  if (page > 1) html += `<button class="page-btn" onclick="goOpsPage(${page-1})">←</button>`;
+  html += `<span class="page-current">Page ${page} of ${pages}</span>`;
+  if (page < pages) html += `<button class="page-btn" onclick="goOpsPage(${page+1})">→</button>`;
+  document.getElementById('opsPagination').innerHTML = html;
+}
+
+function goOpsPage(p) { currentOpsPage = p; loadPlan(); }
+
+function filterOps(type) {
+  currentFilter = type;
+  currentOpsPage = 1;
+  document.querySelectorAll('[id^="fo-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('fo-' + type).classList.add('active');
+  renderOps();
+}
+
+function toggleOp(id, selected) {
+  const op = allOps.find(o => o.id === id);
+  if (op) {
+    op.selected = selected;
+    pendingUpdates[id] = { id, selected };
+    updateSelectedCount();
+    scheduleSync();
+  }
+}
+
+function selectAll(selected) {
+  allOps.forEach(op => {
+    op.selected = selected;
+    pendingUpdates[op.id] = { id: op.id, selected };
+  });
+  updateSelectedCount();
+  renderOps();
+  scheduleSync();
+}
+
+function updateSelectedCount() {
+  document.getElementById('ps-selected').textContent = allOps.filter(o => o.selected !== false).length;
+}
+
+let syncTimer;
+function scheduleSync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncUpdates, 500);
+}
+
+async function syncUpdates() {
+  if (Object.keys(pendingUpdates).length === 0) return;
+  const updates = Object.values(pendingUpdates);
+  const backup = { ...pendingUpdates };
+  pendingUpdates = {};
+  try {
+    await fetch('/api/plan/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates })
+    });
+  } catch(e) {
+    Object.assign(pendingUpdates, backup);
+    showToast('Failed to sync selections - will retry', 'error');
+    scheduleSync();  // M14: Actually retry instead of silently giving up
+  }
+}
+
+function confirmExecute() {
+  const count = allOps.filter(o => o.selected !== false).length;
+  document.getElementById('confirmCount').textContent = count.toLocaleString();
+  document.getElementById('confirmModal').classList.remove('hidden');
+}
+
+function closeConfirm() {
+  document.getElementById('confirmModal').classList.add('hidden');
+  document.getElementById('confirmCheck').checked = false;
+}
+
+async function executeNow() {
+  if (!document.getElementById('confirmCheck').checked) {
+    showToast('Please check the confirmation box first.', 'warn');
+    return;
+  }
+  closeConfirm();
+  showLoading('Organizing files...', 'Please do not close this window', true);
+
+  // Sync any pending updates first
+  await syncUpdates();
+
+  try {
+    const res = await fetch('/api/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmed: true })
+    });
+    const startData = await res.json();
+
+    if (startData.error) {
+      hideLoading();
+      showToast(startData.error, 'error');
+      return;
+    }
+
+    // M5+M6+M13: Poll for execution progress
+    if (startData.task_id) {
+      const taskId = startData.task_id;
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/task/${taskId}/status`);
+          const task = await statusRes.json();
+
+          // Update loading overlay with real-time progress
+          const subEl = document.getElementById('loadingSubtext');
+          if (subEl && task.message) subEl.textContent = task.message;
+
+          if (task.status === 'completed') {
+            clearInterval(pollInterval);
+            hideLoading();
+            const data = task.result;
+
+            document.getElementById('successMsg').innerHTML =
+              `<span class="ss-line">${data.total_succeeded} files organized (${data.total_size_moved})</span>
+               ${data.total_failed > 0 ? `<span class="ss-line ss-warn">${data.total_failed} failed</span>` : ''}
+               <span class="ss-line ss-session">Session ID: <code>${data.undo_session_id}</code></span>`;
+            document.getElementById('successModal').classList.remove('hidden');
+
+          } else if (task.status === 'failed') {
+            clearInterval(pollInterval);
+            hideLoading();
+            showToast('Execution failed: ' + (task.error || 'Unknown error'), 'error');
+          }
+        } catch (pollErr) {
+          console.error('Poll error:', pollErr);
+        }
+      }, 500);
+    } else {
+      hideLoading();
+    }
+
+  } catch(e) {
+    hideLoading();
+    showToast('Execution failed: ' + e.message, 'error');
+  }
+}
+
+function selectCategory() {
+  // Get unique categories from all operations
+  const categories = [...new Set(allOps.map(op => op.category))].sort();
+  if (categories.length === 0) {
+    showToast('No categories found - run a scan first.', 'warn');
+    return;
+  }
+
+  // Remove existing dropdown if any
+  const existing = document.getElementById('catDropdown');
+  if (existing) { existing.remove(); return; }
+
+  // A3: Build accessible dropdown menu with role="menu" and keyboard nav
+  const dropdown = document.createElement('div');
+  dropdown.id = 'catDropdown';
+  dropdown.setAttribute('role', 'menu');
+  dropdown.setAttribute('aria-label', 'Select categories');
+  dropdown.style.cssText = `
+    position: fixed; z-index: 250; background: var(--bg-card);
+    border: 1px solid var(--border-bright); border-radius: var(--radius);
+    box-shadow: var(--shadow-lg); padding: 6px 0;
+    min-width: 180px; max-height: 300px; overflow-y: auto;
+  `;
+
+  const menuItems = [];  // Track items for keyboard navigation
+
+  categories.forEach((cat, idx) => {
+    const count = allOps.filter(o => o.category === cat).length;
+    const selectedCount = allOps.filter(o => o.category === cat && o.selected !== false).length;
+    const item = document.createElement('div');
+    item.setAttribute('role', 'menuitemcheckbox');
+    item.setAttribute('aria-checked', selectedCount === count ? 'true' : 'false');
+    item.setAttribute('tabindex', idx === 0 ? '0' : '-1');
+    item.style.cssText = `
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 14px; cursor: pointer; font-size: 12.5px;
+      color: var(--text-secondary); transition: background 0.1s;
+    `;
+    item.innerHTML = `
+      <input type="checkbox" ${selectedCount === count ? 'checked' : ''} style="cursor:pointer;" tabindex="-1" aria-hidden="true">
+      <span style="flex:1">${cat}</span>
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">${count}</span>
+    `;
+    item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
+    item.addEventListener('mouseleave', () => item.style.background = 'transparent');
+
+    const toggleItem = (e) => {
+      const cb = item.querySelector('input');
+      if (e.target !== cb) cb.checked = !cb.checked;
+      item.setAttribute('aria-checked', cb.checked ? 'true' : 'false');
+      allOps.forEach(op => {
+        if (op.category === cat) {
+          op.selected = cb.checked;
+          pendingUpdates[op.id] = { id: op.id, selected: cb.checked };
+        }
+      });
+      updateSelectedCount();
+      renderOps();
+      scheduleSync();
+    };
+
+    item.addEventListener('click', toggleItem);
+    dropdown.appendChild(item);
+    menuItems.push(item);
+  });
+
+  // A3: Keyboard navigation for the dropdown
+  dropdown.addEventListener('keydown', (e) => {
+    const currentIdx = menuItems.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = (currentIdx + 1) % menuItems.length;
+      menuItems[next].focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = (currentIdx - 1 + menuItems.length) % menuItems.length;
+      menuItems[prev].focus();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (currentIdx >= 0) menuItems[currentIdx].click();
+    } else if (e.key === 'Escape') {
+      dropdown.remove();
+      const btn = document.querySelector('[onclick="selectCategory()"]');
+      if (btn) btn.focus();
+    }
+  });
+
+  // Position near the "By Category..." button
+  const btn = document.querySelector('[onclick="selectCategory()"]');
+  const rect = btn.getBoundingClientRect();
+  dropdown.style.top = (rect.bottom + 4) + 'px';
+  dropdown.style.left = rect.left + 'px';
+  document.body.appendChild(dropdown);
+
+  // Focus first item for keyboard users
+  if (menuItems.length > 0) menuItems[0].focus();
+
+  // Close dropdown when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', function closeCatDrop(e) {
+      if (!dropdown.contains(e.target) && e.target !== btn) {
+        dropdown.remove();
+        document.removeEventListener('click', closeCatDrop);
+      }
+    });
+  }, 10);
+}
+
+loadPlan();
+</script>
+{% endblock %}
